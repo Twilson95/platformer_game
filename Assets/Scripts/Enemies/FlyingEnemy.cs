@@ -25,6 +25,12 @@ namespace PlatformerGame.Enemies
 
         protected override void Move()
         {
+            if (IsAggroed && PlayerTarget != null)
+            {
+                MoveTowards(PlayerTarget.position);
+                return;
+            }
+
             if (currentDestination == null)
             {
                 Body.linearVelocity = Vector2.zero;
@@ -41,13 +47,14 @@ namespace PlatformerGame.Enemies
 
         public override void UsePrimaryAbility()
         {
-            if (abilityTarget == null)
+            Transform target = PlayerTarget != null ? PlayerTarget : abilityTarget;
+            if (target == null)
             {
                 return;
             }
 
             Vector2 dashDirection =
-                ((Vector2)abilityTarget.position - Body.position).normalized;
+                ((Vector2)target.position - Body.position).normalized;
             Body.linearVelocity = dashDirection * MoveSpeed * dashMultiplier;
         }
     }
