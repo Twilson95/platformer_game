@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using PlatformerGame.Player;
 
@@ -20,24 +21,44 @@ namespace PlatformerGame.Enemies
         [Tooltip("Shows this enemy's aggro ranges in the Scene view even when it is not selected.")]
         [SerializeField] private bool alwaysShowAggroRange;
 
-        [Header("Contact damage")]
-        [SerializeField, Min(0f)] private float contactDamage = 1f;
-        [SerializeField, Min(0.05f)] private float damageCooldown = 0.75f;
+        [Header("Attack")]
+        [SerializeField, Min(0f)] private float attackDamage = 1f;
+        [SerializeField, Min(0f)] private float attackCooldown = 2f;
+        [SerializeField, Min(0f)] private float attackWindupDuration = 0.4f;
+        [Tooltip("Assign a child containing the enemy sprite for a visual-only shake.")]
+        [SerializeField] private Transform attackVisual;
+        [SerializeField, Min(0f)] private float windupVibrationDistance = 0.06f;
 
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private bool aggroActive;
+        [SerializeField] private bool attackWindingUp;
+        [SerializeField] private bool attackActive;
         [SerializeField] private string currentAiState = "Searching for player";
         [SerializeField] private bool logAggroChanges;
 
-        private float nextDamageTime;
+        private float attackEndTime;
+        private float windupEndTime;
+        private float pendingAttackDuration;
+        private float nextAttackTime;
         private float nextTargetSearchTime;
         private bool hasWarnedAboutMissingPlayer;
+        private readonly HashSet<PlayerHealth> playersHitThisAttack = new();
+        private Vector3 attackVisualRestPosition;
 
         protected Rigidbody2D Body { get; private set; }
         protected float MoveSpeed => moveSpeed;
         protected Transform PlayerTarget => playerTarget;
         protected bool IsAggroed => aggroActive;
+        protected bool IsAttacking => attackActive;
+        protected bool IsWindingUp => attackWindingUp;
+        protected bool CanStartAttack =>
+            IsAlive &&
+            !attackActive &&
+            !attackWindingUp &&
+            Time.time >= nextAttackTime;
         public bool HasAggro => aggroActive;
+        public bool AttackWindingUp => attackWindingUp;
+        public bool AttackActive => attackActive;
         public Transform CurrentTarget => playerTarget;
         public float CurrentHealth { get; private set; }
         public bool IsAlive => CurrentHealth > 0f;
@@ -46,6 +67,7 @@ namespace PlatformerGame.Enemies
         {
             Body = GetComponent<Rigidbody2D>();
             CurrentHealth = maxHealth;
+            FindAttackVisual();
             FindPlayer();
         }
 
@@ -53,7 +75,16 @@ namespace PlatformerGame.Enemies
         {
             if (IsAlive)
             {
+                UpdateAttack();
                 UpdateAggro();
+
+                if (attackWindingUp)
+                {
+                    currentAiState = "Telegraphing attack";
+                    Body.linearVelocity = Vector2.zero;
+                    return;
+                }
+
                 Move();
             }
         }
@@ -85,11 +116,13 @@ namespace PlatformerGame.Enemies
             }
         }
 
-        protected void SetHorizontalVelocity(float direction)
+        protected void SetHorizontalVelocity(
+            float direction,
+            float speedMultiplier = 1f)
         {
             float normalizedDirection = Mathf.Clamp(direction, -1f, 1f);
             Body.linearVelocity = new Vector2(
-                normalizedDirection * moveSpeed,
+                normalizedDirection * moveSpeed * Mathf.Max(0f, speedMultiplier),
                 Body.linearVelocity.y);
 
             if (!Mathf.Approximately(normalizedDirection, 0f))
@@ -114,10 +147,129 @@ namespace PlatformerGame.Enemies
             Body.AddForce(Vector2.up * force, ForceMode2D.Impulse);
         }
 
+        /// <summary>
+        /// Starts the telegraph. The damaging attack window opens after the
+        /// windup. A duration of zero keeps that window open until EndAttack.
+        /// </summary>
+        protected bool BeginAttack(float duration = 0f)
+        {
+            if (!CanStartAttack)
+            {
+                return false;
+            }
+
+            attackWindingUp = attackWindupDuration > 0f;
+            attackActive = !attackWindingUp;
+            windupEndTime = Time.time + attackWindupDuration;
+            pendingAttackDuration = duration;
+            attackEndTime = attackActive && duration > 0f
+                ? Time.time + duration
+                : 0f;
+            nextAttackTime = Time.time + attackCooldown;
+            playersHitThisAttack.Clear();
+            Body.linearVelocity = Vector2.zero;
+
+            if (attackActive)
+            {
+                OnAttackStarted();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Called when the telegraph finishes and the damaging window opens.
+        /// </summary>
+        protected virtual void OnAttackStarted()
+        {
+        }
+
+        protected void EndAttack()
+        {
+            attackActive = false;
+            attackEndTime = 0f;
+        }
+
         protected virtual void Die()
         {
+            CancelAttack();
+            EndAttack();
             Body.linearVelocity = Vector2.zero;
             Destroy(gameObject);
+        }
+
+        private void UpdateAttack()
+        {
+            if (attackWindingUp)
+            {
+                Body.linearVelocity = Vector2.zero;
+                ShakeAttackVisual();
+
+                if (Time.time >= windupEndTime)
+                {
+                    attackWindingUp = false;
+                    attackActive = true;
+                    attackEndTime = pendingAttackDuration > 0f
+                        ? Time.time + pendingAttackDuration
+                        : 0f;
+                    RestoreAttackVisual();
+                    OnAttackStarted();
+                }
+
+                return;
+            }
+
+            if (attackActive && attackEndTime > 0f && Time.time >= attackEndTime)
+            {
+                EndAttack();
+            }
+        }
+
+        private void CancelAttack()
+        {
+            attackWindingUp = false;
+            attackActive = false;
+            windupEndTime = 0f;
+            attackEndTime = 0f;
+            RestoreAttackVisual();
+        }
+
+        private void FindAttackVisual()
+        {
+            if (attackVisual == null)
+            {
+                SpriteRenderer sprite = GetComponentInChildren<SpriteRenderer>();
+                if (sprite != null && sprite.transform != transform)
+                {
+                    attackVisual = sprite.transform;
+                }
+            }
+
+            if (attackVisual != null)
+            {
+                attackVisualRestPosition = attackVisual.localPosition;
+            }
+        }
+
+        private void ShakeAttackVisual()
+        {
+            if (attackVisual == null)
+            {
+                return;
+            }
+
+            Vector2 vibration =
+                Random.insideUnitCircle * windupVibrationDistance;
+            attackVisual.localPosition =
+                attackVisualRestPosition + (Vector3)vibration;
+        }
+
+        private void RestoreAttackVisual()
+        {
+            if (attackVisual != null)
+            {
+                attackVisual.localPosition = attackVisualRestPosition;
+            }
         }
 
         private void UpdateAggro()
@@ -233,21 +385,26 @@ namespace PlatformerGame.Enemies
             TryDamagePlayer(other);
         }
 
+        private void OnDisable()
+        {
+            CancelAttack();
+        }
+
         private void TryDamagePlayer(Collider2D other)
         {
-            if (!IsAlive || contactDamage <= 0f || Time.time < nextDamageTime)
+            if (!IsAlive || !attackActive || attackDamage <= 0f)
             {
                 return;
             }
 
             PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
-            if (playerHealth == null)
+            if (playerHealth == null || playersHitThisAttack.Contains(playerHealth))
             {
                 return;
             }
 
-            playerHealth.TakeDamage(contactDamage);
-            nextDamageTime = Time.time + damageCooldown;
+            playerHealth.TakeDamage(attackDamage);
+            playersHitThisAttack.Add(playerHealth);
         }
 
         private void FaceDirection(float horizontalDirection)

@@ -10,15 +10,14 @@ namespace PlatformerGame.Enemies
         [Header("Jumping enemy")]
         [SerializeField] private float patrolDirection = 1f;
         [SerializeField, Min(0f)] private float jumpForce = 7f;
-        [SerializeField, Min(0.1f)] private float jumpInterval = 2f;
         [SerializeField] private Transform groundCheck;
         [SerializeField, Min(0.01f)] private float groundCheckRadius = 0.15f;
         [SerializeField] private LayerMask groundLayers;
         [Tooltip("Prevents rapid left/right flickering when directly above the player.")]
         [SerializeField, Min(0f)] private float horizontalChaseDeadZone = 0.05f;
 
-        private float nextJumpTime;
         private float chaseDirection;
+        private bool leftGroundDuringAttack;
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private float commandedMoveDirection;
 
@@ -49,7 +48,21 @@ namespace PlatformerGame.Enemies
             commandedMoveDirection = direction;
             SetHorizontalVelocity(direction);
 
-            if (Time.time >= nextJumpTime && IsGrounded())
+            bool grounded = IsGrounded();
+
+            if (IsAttacking)
+            {
+                if (!grounded)
+                {
+                    leftGroundDuringAttack = true;
+                }
+                else if (leftGroundDuringAttack)
+                {
+                    EndAttack();
+                    leftGroundDuringAttack = false;
+                }
+            }
+            else if (IsAggroed && CanStartAttack && grounded)
             {
                 UsePrimaryAbility();
             }
@@ -57,13 +70,17 @@ namespace PlatformerGame.Enemies
 
         public override void UsePrimaryAbility()
         {
-            if (!IsGrounded())
+            if (!IsGrounded() || !BeginAttack())
             {
                 return;
             }
 
+            leftGroundDuringAttack = false;
+        }
+
+        protected override void OnAttackStarted()
+        {
             ApplyVerticalImpulse(jumpForce);
-            nextJumpTime = Time.time + jumpInterval;
         }
 
         public void ReversePatrolDirection()
