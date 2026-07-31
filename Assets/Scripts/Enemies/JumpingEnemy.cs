@@ -17,6 +17,7 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float horizontalChaseDeadZone = 0.05f;
 
         private float chaseDirection;
+        private float movementDirection;
         private bool leftGroundDuringAttack;
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private float commandedMoveDirection;
@@ -27,28 +28,33 @@ namespace PlatformerGame.Enemies
             patrolDirection = Mathf.Sign(
                 Mathf.Approximately(patrolDirection, 0f) ? 1f : patrolDirection);
             chaseDirection = patrolDirection;
+            movementDirection = patrolDirection;
         }
 
         protected override void Move()
         {
-            float direction = patrolDirection;
-            if (IsAggroed && PlayerTarget != null)
+            bool grounded = IsGrounded();
+
+            if (grounded && !IsAttacking)
             {
-                float horizontalOffset =
-                    PlayerTarget.position.x - Body.position.x;
+                movementDirection = patrolDirection;
 
-                if (Mathf.Abs(horizontalOffset) > horizontalChaseDeadZone)
+                if (IsAggroed && PlayerTarget != null)
                 {
-                    chaseDirection = Mathf.Sign(horizontalOffset);
-                }
+                    float horizontalOffset =
+                        PlayerTarget.position.x - Body.position.x;
 
-                direction = chaseDirection;
+                    if (Mathf.Abs(horizontalOffset) > horizontalChaseDeadZone)
+                    {
+                        chaseDirection = Mathf.Sign(horizontalOffset);
+                    }
+
+                    movementDirection = chaseDirection;
+                }
             }
 
-            commandedMoveDirection = direction;
-            SetHorizontalVelocity(direction);
-
-            bool grounded = IsGrounded();
+            commandedMoveDirection = movementDirection;
+            SetHorizontalVelocity(movementDirection);
 
             if (IsAttacking)
             {

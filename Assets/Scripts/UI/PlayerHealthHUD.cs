@@ -103,7 +103,7 @@ namespace PlatformerGame.UI
         {
             if (playerHealth == null)
             {
-                playerHealth = FindFirstObjectByType<PlayerHealth>();
+                playerHealth = Object.FindAnyObjectByType<PlayerHealth>();
             }
 
             if (playerHealth == null)

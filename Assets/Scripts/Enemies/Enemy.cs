@@ -20,6 +20,8 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float aggroRange = 6f;
         [Tooltip("Shows this enemy's aggro ranges in the Scene view even when it is not selected.")]
         [SerializeField] private bool alwaysShowAggroRange;
+        [Tooltip("Terrain layers that must not block attacks from reaching the player.")]
+        [SerializeField] private LayerMask terrainLayers;
 
         [Header("Attack")]
         [SerializeField, Min(0f)] private float attackDamage = 1f;
@@ -153,7 +155,7 @@ namespace PlatformerGame.Enemies
         /// </summary>
         protected bool BeginAttack(float duration = 0f)
         {
-            if (!CanStartAttack)
+            if (!CanStartAttack || !HasClearAttackPath())
             {
                 return false;
             }
@@ -175,6 +177,21 @@ namespace PlatformerGame.Enemies
             }
 
             return true;
+        }
+
+        private bool HasClearAttackPath()
+        {
+            if (playerTarget == null)
+            {
+                return true;
+            }
+
+            RaycastHit2D terrainHit = Physics2D.Linecast(
+                Body.position,
+                playerTarget.position,
+                terrainLayers);
+
+            return terrainHit.collider == null;
         }
 
         /// <summary>
@@ -336,7 +353,8 @@ namespace PlatformerGame.Enemies
                 return;
             }
 
-            PlayerHealth playerHealth = FindFirstObjectByType<PlayerHealth>();
+            PlayerHealth playerHealth =
+                Object.FindAnyObjectByType<PlayerHealth>();
             if (playerHealth != null)
             {
                 playerTarget = playerHealth.transform;
@@ -344,7 +362,8 @@ namespace PlatformerGame.Enemies
                 return;
             }
 
-            Movement playerMovement = FindFirstObjectByType<Movement>();
+            Movement playerMovement =
+                Object.FindAnyObjectByType<Movement>();
             if (playerMovement != null)
             {
                 playerTarget = playerMovement.transform;
