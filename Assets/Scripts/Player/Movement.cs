@@ -12,6 +12,10 @@ public class Movement : MonoBehaviour
     public float dashSpeed = 20f;
     public float dashDuration = 0.2f;
     public float dashCooldown = 0.5f;
+    
+    [Header("Attack")]
+    public float attackCooldown = 0.1f;
+    public GameObject sword;
 
     [Header("Ground Check")]
     public Transform groundCheck;
@@ -23,12 +27,14 @@ public class Movement : MonoBehaviour
     private InputAction moveAction;
     private InputAction jumpAction;
     private InputAction dashAction;
+    private InputAction attackAction;
 
     private bool jumpQueued;
     private bool isGrounded;
 
     public bool IsDashing { get; private set; }
     private bool canDash = true;
+    private bool canAttack = true;
 
     private float facingDirection = 1f;
 
@@ -40,6 +46,7 @@ public class Movement : MonoBehaviour
         moveAction = playerInput.actions["Move"];
         jumpAction = playerInput.actions["Jump"];
         dashAction = playerInput.actions["Dash"];
+        attackAction = playerInput.actions["Attack"];
     }
 
     void Update()
@@ -66,6 +73,11 @@ public class Movement : MonoBehaviour
         {
             StartCoroutine(Dash());
         }
+
+        if (attackAction.WasPressedThisFrame())
+        {
+            StartCoroutine(Attack());
+        }
     }
 
     void FixedUpdate()
@@ -73,11 +85,15 @@ public class Movement : MonoBehaviour
         if (IsDashing)
             return;
 
-        float move = moveAction.ReadValue<Vector2>().x;
+        float moveX = moveAction.ReadValue<Vector2>().x;
 
         rb.linearVelocity = new Vector2(
-            move * speed,
+            moveX * speed,
             rb.linearVelocity.y);
+        if (moveX != 0)
+        {
+            transform.rotation = Quaternion.Euler(0, moveX > 0 ? 0 : 180, 0);
+        }
 
         if (jumpQueued)
         {
@@ -119,6 +135,20 @@ public class Movement : MonoBehaviour
         yield return new WaitForSeconds(dashCooldown);
 
         canDash = true;
+    }
+    IEnumerator Attack()
+    {
+        canAttack = false;
+
+        sword.SetActive(true);
+
+        yield return new WaitForSeconds(0.2f);
+
+        sword.SetActive(false);
+
+        yield return new WaitForSeconds(attackCooldown);
+
+        canAttack = true;
     }
 
     void OnDisable()
