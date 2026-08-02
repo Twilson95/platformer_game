@@ -18,6 +18,7 @@ public class Movement : MonoBehaviour
     [Header("Attack")]
     public float attackCooldown = 0.1f;
     public GameObject sword;
+    [SerializeField, Min(0.01f)] private float swingDuration = 0.2f;
 
     [Header("Ground Check")]
     public Transform groundCheck;
@@ -76,7 +77,7 @@ public class Movement : MonoBehaviour
             StartCoroutine(Dash());
         }
 
-        if (attackAction.WasPressedThisFrame())
+        if (attackAction.WasPressedThisFrame() && canAttack)
         {
             StartCoroutine(Attack());
         }
@@ -142,11 +143,12 @@ public class Movement : MonoBehaviour
     {
         canAttack = false;
 
-        sword.SetActive(true);
-
-        yield return new WaitForSeconds(0.2f);
-
-        sword.SetActive(false);
+        if (sword != null)
+        {
+            sword.SetActive(true);
+            yield return new WaitForSeconds(swingDuration);
+            sword.SetActive(false);
+        }
 
         yield return new WaitForSeconds(attackCooldown);
 
