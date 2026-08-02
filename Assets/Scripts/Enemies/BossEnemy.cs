@@ -41,10 +41,12 @@ namespace PlatformerGame.Enemies
         public bool EncounterActive => encounterActive;
         public event Action Defeated;
 
+        protected override bool AlwaysAggro => true;
+
         protected override void Awake()
         {
-            maxHealth = Mathf.Max(maxHealth, 50f);
             base.Awake();
+            BeginEncounter();
         }
 
         public void BeginEncounter()
@@ -90,11 +92,14 @@ namespace PlatformerGame.Enemies
                 return;
             }
 
-            // The boss is confined to its room and does not continuously chase
-            // the player. Its attacks provide all movement and are aimed at
-            // the current player position.
-            Body.linearVelocity = new Vector2(0f, Body.linearVelocity.y);
-            currentMove = "Ready";
+            float horizontalOffset = PlayerTarget.position.x - Body.position.x;
+            float direction = Mathf.Sign(horizontalOffset);
+            if (!Mathf.Approximately(direction, 0f))
+            {
+                SetHorizontalVelocity(direction);
+            }
+
+            currentMove = "Following";
 
             if (Time.time >= nextMoveTime)
             {
