@@ -12,7 +12,7 @@ namespace PlatformerGame.Enemies
     public abstract class Enemy : MonoBehaviour
     {
         [Header("Shared attributes")]
-        [SerializeField, Min(1f)] private float maxHealth = 1f;
+        [SerializeField, Min(1f)] protected float maxHealth = 1f;
         [SerializeField, Min(0f)] private float moveSpeed = 3f;
 
         [Header("Aggro")]
