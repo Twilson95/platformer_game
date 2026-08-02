@@ -827,6 +827,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1139554381}
   - component: {fileID: 1139554382}
+  - component: {fileID: 1139554383}
+  - component: {fileID: 1139554384}
   m_Layer: 6
   m_Name: Sword
   m_TagString: Untagged
@@ -834,6 +836,42 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 0
+--- !u!58 &1139554383
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139554380}
+  m_Enabled: 1
+  m_ContactCaptureLayers: 0
+  m_CallbackLayers: 0
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  m_Radius: 0.5
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+--- !u!114 &1139554384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139554380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f6a6c9a1d1b4c1e9f7a3b2c5d6e7f80, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  damage: 1
 --- !u!4 &1139554381
 Transform:
   m_ObjectHideFlags: 0
