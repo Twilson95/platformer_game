@@ -12,7 +12,7 @@ namespace PlatformerGame.Enemies
     public abstract class Enemy : MonoBehaviour
     {
         [Header("Shared attributes")]
-        [SerializeField, Min(1f)] private float maxHealth = 1f;
+        [SerializeField, Min(1f)] protected float maxHealth = 1f;
         [SerializeField, Min(0f)] private float moveSpeed = 3f;
 
         [Header("Aggro")]
@@ -53,6 +53,7 @@ namespace PlatformerGame.Enemies
         protected bool IsAggroed => aggroActive;
         protected bool IsAttacking => attackActive;
         protected bool IsWindingUp => attackWindingUp;
+        protected virtual bool AlwaysAggro => false;
         protected bool CanStartAttack =>
             IsAlive &&
             !attackActive &&
@@ -301,6 +302,13 @@ namespace PlatformerGame.Enemies
 
                 SetAggro(false);
                 currentAiState = "Searching for player";
+                return;
+            }
+
+            if (AlwaysAggro)
+            {
+                SetAggro(true);
+                currentAiState = "Always aggroed";
                 return;
             }
 

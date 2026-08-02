@@ -2,6 +2,8 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+namespace PlatformerGame.Player
+{
 public class Movement : MonoBehaviour
 {
     [Header("Movement")]
@@ -168,4 +170,5 @@ public class Movement : MonoBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(groundCheck.position, groundRadius);
     }
+}
 }
