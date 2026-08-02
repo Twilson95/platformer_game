@@ -9,6 +9,8 @@ namespace PlatformerGame.Enemies
     {
         [Header("Jumping enemy")]
         [SerializeField] private float patrolDirection = 1f;
+        [Tooltip("Maximum distance this enemy can patrol from its starting position while idle.")]
+        [SerializeField, Min(0f)] private float patrolRange = 2.5f;
         [SerializeField, Min(0f)] private float jumpForce = 7f;
         [SerializeField] private Transform groundCheck;
         [SerializeField, Min(0.01f)] private float groundCheckRadius = 0.15f;
@@ -19,6 +21,7 @@ namespace PlatformerGame.Enemies
         private float chaseDirection;
         private float movementDirection;
         private bool leftGroundDuringAttack;
+        private float patrolOriginX;
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private float commandedMoveDirection;
 
@@ -29,6 +32,7 @@ namespace PlatformerGame.Enemies
                 Mathf.Approximately(patrolDirection, 0f) ? 1f : patrolDirection);
             chaseDirection = patrolDirection;
             movementDirection = patrolDirection;
+            patrolOriginX = Body.position.x;
         }
 
         protected override void Move()
@@ -38,6 +42,17 @@ namespace PlatformerGame.Enemies
             if (grounded && !IsAttacking)
             {
                 movementDirection = patrolDirection;
+
+                if (patrolRange > 0f)
+                {
+                    float offsetFromOrigin = Body.position.x - patrolOriginX;
+                    if ((patrolDirection > 0f && offsetFromOrigin >= patrolRange) ||
+                        (patrolDirection < 0f && offsetFromOrigin <= -patrolRange))
+                    {
+                        patrolDirection *= -1f;
+                        movementDirection = patrolDirection;
+                    }
+                }
 
                 if (IsAggroed && PlayerTarget != null)
                 {
