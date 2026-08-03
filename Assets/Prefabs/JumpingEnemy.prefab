@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5274164649106250216}
   - component: {fileID: 9159110643523618198}
   - component: {fileID: 2257362873269838043}
+  - component: {fileID: 1812452713978986499}
   m_Layer: 7
   m_Name: JumpingEnemy
   m_TagString: enemy
@@ -201,6 +202,7 @@ MonoBehaviour:
   attackWindupDuration: 0.4
   attackVisual: {fileID: 0}
   windupVibrationDistance: 0.06
+  enemyAnimator: {fileID: 0}
   aggroActive: 0
   attackWindingUp: 0
   attackActive: 0
@@ -216,6 +218,28 @@ MonoBehaviour:
     m_Bits: 8
   horizontalChaseDeadZone: 0.05
   commandedMoveDirection: 0
+--- !u!95 &1812452713978986499
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1624144602624259584}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 3432b500f4ba4a14cb0c02eabd87f54c, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &3629274998908252542
 GameObject:
   m_ObjectHideFlags: 0

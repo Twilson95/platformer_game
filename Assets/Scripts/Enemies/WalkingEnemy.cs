@@ -111,6 +111,8 @@ namespace PlatformerGame.Enemies
             patrolDirection *= -1f;
         }
 
+        protected override bool IsGroundedForAnimation => IsGrounded();
+
         private bool IsGrounded()
         {
             return groundCheck != null &&

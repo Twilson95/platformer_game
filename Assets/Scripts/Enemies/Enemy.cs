@@ -31,6 +31,10 @@ namespace PlatformerGame.Enemies
         [SerializeField] private Transform attackVisual;
         [SerializeField, Min(0f)] private float windupVibrationDistance = 0.06f;
 
+        [Header("Animation")]
+        [Tooltip("Animator on this enemy. Its controller should use IsGrounded and VerticalVelocity parameters.")]
+        [SerializeField] private Animator enemyAnimator;
+
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private bool aggroActive;
         [SerializeField] private bool attackWindingUp;
@@ -54,6 +58,7 @@ namespace PlatformerGame.Enemies
         protected bool IsAttacking => attackActive;
         protected bool IsWindingUp => attackWindingUp;
         protected virtual bool AlwaysAggro => false;
+        protected virtual bool IsGroundedForAnimation => false;
         protected bool CanStartAttack =>
             IsAlive &&
             !attackActive &&
@@ -69,6 +74,11 @@ namespace PlatformerGame.Enemies
         protected virtual void Awake()
         {
             Body = GetComponent<Rigidbody2D>();
+            if (enemyAnimator == null)
+            {
+                enemyAnimator = GetComponentInChildren<Animator>();
+            }
+
             CurrentHealth = maxHealth;
             FindAttackVisual();
             FindPlayer();
@@ -76,6 +86,8 @@ namespace PlatformerGame.Enemies
 
         protected virtual void FixedUpdate()
         {
+            UpdateAnimationParameters();
+
             if (IsAlive)
             {
                 UpdateAttack();
@@ -90,6 +102,17 @@ namespace PlatformerGame.Enemies
 
                 Move();
             }
+        }
+
+        private void UpdateAnimationParameters()
+        {
+            if (enemyAnimator == null || Body == null)
+            {
+                return;
+            }
+
+            enemyAnimator.SetBool("IsGrounded", IsGroundedForAnimation);
+            enemyAnimator.SetFloat("VerticalVelocity", Body.linearVelocity.y);
         }
 
         /// <summary>
