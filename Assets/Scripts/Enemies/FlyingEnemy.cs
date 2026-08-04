@@ -15,12 +15,15 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float chargeRange = 3f;
         [SerializeField, Min(0.05f)] private float chargeDuration = 0.5f;
         [SerializeField, Min(0.05f)] private float arrivalDistance = 0.15f;
+        [Tooltip("Horizontal distance required before changing facing direction.")]
+        [SerializeField, Min(0f)] private float horizontalChaseDeadZone = 0.05f;
         [Tooltip("Minimum height kept above ground outside of a charge attack.")]
         [SerializeField, Min(0f)] private float groundClearance = 0.75f;
         [SerializeField] private LayerMask groundLayers;
 
         private Transform currentDestination;
         private Vector2 chargeDirection;
+        private float steeringDirection = 1f;
 
         protected override void Awake()
         {
@@ -87,6 +90,11 @@ namespace PlatformerGame.Enemies
 
         private void MoveWithGroundClearance(Vector2 destination)
         {
+            steeringDirection = UpdateSteeringDirection(
+                steeringDirection,
+                destination.x - Body.position.x,
+                horizontalChaseDeadZone);
+
             RaycastHit2D groundHit = Physics2D.Raycast(
                 Body.position,
                 Vector2.down,
@@ -100,6 +108,7 @@ namespace PlatformerGame.Enemies
             }
 
             MoveTowards(destination);
+            FaceDirection(steeringDirection);
 
             if (groundHit.collider == null || Body.linearVelocity.y >= 0f)
             {

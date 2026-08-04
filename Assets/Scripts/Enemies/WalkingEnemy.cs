@@ -17,7 +17,6 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float chargeRange = 2.5f;
         [SerializeField, Min(0.05f)] private float chargeDuration = 0.5f;
         [SerializeField, Min(1f)] private float chargeSpeedMultiplier = 2.5f;
-        [SerializeField] private Transform groundCheck;
         [SerializeField, Min(0.01f)] private float groundCheckRadius = 0.15f;
         [SerializeField] private LayerMask groundLayers;
 
@@ -52,10 +51,10 @@ namespace PlatformerGame.Enemies
                 float horizontalOffset =
                     PlayerTarget.position.x - Body.position.x;
 
-                if (Mathf.Abs(horizontalOffset) > horizontalChaseDeadZone)
-                {
-                    chaseDirection = Mathf.Sign(horizontalOffset);
-                }
+                chaseDirection = UpdateSteeringDirection(
+                    chaseDirection,
+                    horizontalOffset,
+                    horizontalChaseDeadZone);
 
                 direction = chaseDirection;
 
@@ -111,26 +110,21 @@ namespace PlatformerGame.Enemies
             patrolDirection *= -1f;
         }
 
+        protected override bool IsGroundedForAnimation => IsGrounded();
+
         private bool IsGrounded()
         {
-            return groundCheck != null &&
-                   Physics2D.OverlapCircle(
-                       groundCheck.position,
-                       groundCheckRadius,
-                       groundLayers) != null;
+            return IsGroundedAtActiveColliderBottom(
+                groundCheckRadius,
+                groundLayers);
         }
 
         protected override void OnDrawGizmosSelected()
         {
             base.OnDrawGizmosSelected();
 
-            if (groundCheck == null)
-            {
-                return;
-            }
-
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+            Gizmos.DrawWireSphere(GroundCheckPosition, groundCheckRadius);
         }
     }
 }
