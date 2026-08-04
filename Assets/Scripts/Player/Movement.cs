@@ -36,6 +36,8 @@ public class Movement : MonoBehaviour
     public Transform groundCheck;
     public float groundRadius = 0.2f;
     public LayerMask groundLayer;
+    [Tooltip("Enemies are included so the player can land on top of them.")]
+    public LayerMask enemyLayer;
 
     private Rigidbody2D rb;
     private PlayerInput playerInput;
@@ -58,6 +60,17 @@ public class Movement : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         playerInput = GetComponent<PlayerInput>();
 
+        // Keep enemy tops valid landing surfaces even if the layer mask was
+        // not assigned on an existing player prefab.
+        if (enemyLayer == 0)
+        {
+            int enemyLayerIndex = LayerMask.NameToLayer("Enemy");
+            if (enemyLayerIndex >= 0)
+            {
+                enemyLayer = 1 << enemyLayerIndex;
+            }
+        }
+
         if (playerAnimator == null)
         {
             playerAnimator = GetComponentInChildren<Animator>();
@@ -74,7 +87,7 @@ public class Movement : MonoBehaviour
         isGrounded = Physics2D.OverlapCircle(
             groundCheck.position,
             groundRadius,
-            groundLayer);
+            groundLayer | enemyLayer);
 
         float move = moveAction.ReadValue<Vector2>().x;
 
