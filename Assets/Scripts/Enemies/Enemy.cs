@@ -11,6 +11,13 @@ namespace PlatformerGame.Enemies
     [RequireComponent(typeof(Rigidbody2D))]
     public abstract class Enemy : MonoBehaviour
     {
+        private enum EnemyAnimationState
+        {
+            Idle = 0,
+            Jump = 1,
+            Fall = 2
+        }
+
         [Header("Shared attributes")]
         [SerializeField, Min(1f)] protected float maxHealth = 1f;
         [SerializeField, Min(0f)] private float moveSpeed = 3f;
@@ -32,8 +39,16 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float windupVibrationDistance = 0.06f;
 
         [Header("Animation")]
-        [Tooltip("Animator on this enemy. Its controller should use IsGrounded and VerticalVelocity parameters.")]
+        [Tooltip("Animator on this enemy. Its controller should use the AnimationState integer parameter: 0 Idle, 1 Jump, 2 Fall.")]
         [SerializeField] private Animator enemyAnimator;
+
+        [Header("State colliders")]
+        [Tooltip("Collider used while the enemy is grounded.")]
+        [SerializeField] private Collider2D idleCollider;
+        [Tooltip("Collider used while the enemy is rising.")]
+        [SerializeField] private Collider2D jumpCollider;
+        [Tooltip("Collider used while the enemy is falling.")]
+        [SerializeField] private Collider2D fallCollider;
 
         [Header("Runtime Debug (read only during play)")]
         [SerializeField] private bool aggroActive;
@@ -50,6 +65,8 @@ namespace PlatformerGame.Enemies
         private bool hasWarnedAboutMissingPlayer;
         private readonly HashSet<PlayerHealth> playersHitThisAttack = new();
         private Vector3 attackVisualRestPosition;
+        private EnemyAnimationState currentAnimationState;
+        private Collider2D previouslyActiveCollider;
 
         protected Rigidbody2D Body { get; private set; }
         protected float MoveSpeed => moveSpeed;
@@ -59,11 +76,69 @@ namespace PlatformerGame.Enemies
         protected bool IsWindingUp => attackWindingUp;
         protected virtual bool AlwaysAggro => false;
         protected virtual bool IsGroundedForAnimation => false;
+        protected Vector2 GroundCheckPosition
+        {
+            get
+            {
+                Collider2D activeCollider = GetActiveStateCollider();
+                if (activeCollider != null)
+                {
+                    Bounds bounds = activeCollider.bounds;
+                    return new Vector2(bounds.center.x, bounds.min.y);
+                }
+
+                return transform.position;
+            }
+        }
         protected bool CanStartAttack =>
             IsAlive &&
             !attackActive &&
             !attackWindingUp &&
             Time.time >= nextAttackTime;
+
+        protected static float UpdateSteeringDirection(
+            float currentDirection,
+            float horizontalOffset,
+            float deadZone)
+        {
+            if (Mathf.Approximately(currentDirection, 0f))
+            {
+                return Mathf.Sign(horizontalOffset);
+            }
+
+            // Keep moving in the current direction until the target has
+            // crossed past it by the dead-zone distance. This prevents the
+            // enemy from repeatedly reversing while passing directly over
+            // the target.
+            if (horizontalOffset * currentDirection < -deadZone)
+            {
+                return -currentDirection;
+            }
+
+            return currentDirection;
+        }
+        protected bool IsGroundedAtActiveColliderBottom(
+            float checkRadius,
+            LayerMask layers)
+        {
+            Collider2D activeCollider = GetActiveStateCollider();
+            if (activeCollider == null)
+            {
+                return false;
+            }
+
+            Bounds bounds = activeCollider.bounds;
+            Vector2 checkSize = new(
+                Mathf.Max(bounds.size.x * 0.8f, checkRadius * 2f),
+                checkRadius * 2f);
+            Vector2 checkCenter = new(bounds.center.x, bounds.min.y);
+
+            return Physics2D.OverlapBox(
+                       checkCenter,
+                       checkSize,
+                       0f,
+                       layers) != null;
+        }
         public bool HasAggro => aggroActive;
         public bool AttackWindingUp => attackWindingUp;
         public bool AttackActive => attackActive;
@@ -79,6 +154,8 @@ namespace PlatformerGame.Enemies
                 enemyAnimator = GetComponentInChildren<Animator>();
             }
 
+            FindStateColliders();
+
             CurrentHealth = maxHealth;
             FindAttackVisual();
             FindPlayer();
@@ -86,6 +163,8 @@ namespace PlatformerGame.Enemies
 
         protected virtual void FixedUpdate()
         {
+            UpdateAnimationState();
+            UpdateStateCollider();
             UpdateAnimationParameters();
 
             if (IsAlive)
@@ -106,13 +185,84 @@ namespace PlatformerGame.Enemies
 
         private void UpdateAnimationParameters()
         {
-            if (enemyAnimator == null || Body == null)
+            if (enemyAnimator == null)
             {
                 return;
             }
 
-            enemyAnimator.SetBool("IsGrounded", IsGroundedForAnimation);
-            enemyAnimator.SetFloat("VerticalVelocity", Body.linearVelocity.y);
+            enemyAnimator.SetInteger("AnimationState", (int)currentAnimationState);
+        }
+
+        private void UpdateAnimationState()
+        {
+            if (IsGroundedForAnimation)
+            {
+                currentAnimationState = EnemyAnimationState.Idle;
+            }
+            else
+            {
+                currentAnimationState = Body.linearVelocity.y >= 0f
+                    ? EnemyAnimationState.Jump
+                    : EnemyAnimationState.Fall;
+            }
+        }
+
+        private void FindStateColliders()
+        {
+            idleCollider ??= FindChildCollider("collider_idle");
+            jumpCollider ??= FindChildCollider("collider_jump");
+            fallCollider ??= FindChildCollider("collider_fall");
+        }
+
+        private Collider2D FindChildCollider(string childName)
+        {
+            Transform child = transform.Find(childName);
+            return child != null ? child.GetComponent<Collider2D>() : null;
+        }
+
+        private void UpdateStateCollider()
+        {
+            Collider2D activeCollider = GetActiveStateCollider();
+
+            if (activeCollider == previouslyActiveCollider)
+            {
+                return;
+            }
+
+            bool hadPreviousCollider = previouslyActiveCollider != null;
+            float previousBottom = hadPreviousCollider
+                ? previouslyActiveCollider.bounds.min.y
+                : 0f;
+
+            SetColliderEnabled(idleCollider, activeCollider == idleCollider);
+            SetColliderEnabled(jumpCollider, activeCollider == jumpCollider);
+            SetColliderEnabled(fallCollider, activeCollider == fallCollider);
+
+            if (activeCollider != null && hadPreviousCollider)
+            {
+                Physics2D.SyncTransforms();
+                Body.position += Vector2.up * (previousBottom - activeCollider.bounds.min.y);
+            }
+
+            previouslyActiveCollider = activeCollider;
+        }
+
+        private Collider2D GetActiveStateCollider()
+        {
+            return currentAnimationState switch
+            {
+                EnemyAnimationState.Jump => jumpCollider,
+                EnemyAnimationState.Fall => fallCollider,
+                _ => idleCollider
+            };
+        }
+
+        private static void SetColliderEnabled(Collider2D collider, bool enabled)
+        {
+            if (collider != null)
+            {
+                collider.enabled = enabled;
+            }
         }
 
         /// <summary>
@@ -457,7 +607,7 @@ namespace PlatformerGame.Enemies
             playersHitThisAttack.Add(playerHealth);
         }
 
-        private void FaceDirection(float horizontalDirection)
+        protected void FaceDirection(float horizontalDirection)
         {
             Vector3 scale = transform.localScale;
             scale.x = Mathf.Abs(scale.x) * Mathf.Sign(horizontalDirection);

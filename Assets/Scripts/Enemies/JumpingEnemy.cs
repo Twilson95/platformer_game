@@ -12,7 +12,6 @@ namespace PlatformerGame.Enemies
         [Tooltip("Maximum distance this enemy can patrol from its starting position while idle.")]
         [SerializeField, Min(0f)] private float patrolRange = 2.5f;
         [SerializeField, Min(0f)] private float jumpForce = 7f;
-        [SerializeField] private Transform groundCheck;
         [SerializeField, Min(0.01f)] private float groundCheckRadius = 0.15f;
         [SerializeField] private LayerMask groundLayers;
         [Tooltip("Prevents rapid left/right flickering when directly above the player.")]
@@ -39,37 +38,36 @@ namespace PlatformerGame.Enemies
         {
             bool grounded = IsGrounded();
 
+            float direction = movementDirection;
+
             if (grounded && !IsAttacking)
             {
-                movementDirection = patrolDirection;
+                direction = patrolDirection;
 
-                if (patrolRange > 0f)
+                if (IsAggroed && PlayerTarget != null)
+                {
+                    chaseDirection = UpdateSteeringDirection(
+                        chaseDirection,
+                        PlayerTarget.position.x - Body.position.x,
+                        horizontalChaseDeadZone);
+                    direction = chaseDirection;
+                }
+                else if (patrolRange > 0f)
                 {
                     float offsetFromOrigin = Body.position.x - patrolOriginX;
                     if ((patrolDirection > 0f && offsetFromOrigin >= patrolRange) ||
                         (patrolDirection < 0f && offsetFromOrigin <= -patrolRange))
                     {
                         patrolDirection *= -1f;
-                        movementDirection = patrolDirection;
+                        direction = patrolDirection;
                     }
                 }
 
-                if (IsAggroed && PlayerTarget != null)
-                {
-                    float horizontalOffset =
-                        PlayerTarget.position.x - Body.position.x;
-
-                    if (Mathf.Abs(horizontalOffset) > horizontalChaseDeadZone)
-                    {
-                        chaseDirection = Mathf.Sign(horizontalOffset);
-                    }
-
-                    movementDirection = chaseDirection;
-                }
+                movementDirection = direction;
             }
 
-            commandedMoveDirection = movementDirection;
-            SetHorizontalVelocity(movementDirection);
+            commandedMoveDirection = direction;
+            SetHorizontalVelocity(direction);
 
             if (IsAttacking)
             {
@@ -113,24 +111,17 @@ namespace PlatformerGame.Enemies
 
         private bool IsGrounded()
         {
-            return groundCheck != null &&
-                   Physics2D.OverlapCircle(
-                       groundCheck.position,
-                       groundCheckRadius,
-                       groundLayers) != null;
+            return IsGroundedAtActiveColliderBottom(
+                groundCheckRadius,
+                groundLayers);
         }
 
         protected override void OnDrawGizmosSelected()
         {
             base.OnDrawGizmosSelected();
 
-            if (groundCheck == null)
-            {
-                return;
-            }
-
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+            Gizmos.DrawWireSphere(GroundCheckPosition, groundCheckRadius);
         }
     }
 }
