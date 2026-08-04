@@ -6,6 +6,14 @@ namespace PlatformerGame.Player
 {
 public class Movement : MonoBehaviour
 {
+    private enum PlayerAnimationState
+    {
+        Idle = 0,
+        Run = 1,
+        Jump = 2,
+        Fall = 3
+    }
+
     [Header("Movement")]
     public float speed = 5f;
     public float jumpForce = 7f;
@@ -19,6 +27,10 @@ public class Movement : MonoBehaviour
     public float attackCooldown = 0.1f;
     public GameObject sword;
     [SerializeField, Min(0.01f)] private float swingDuration = 0.2f;
+
+    [Header("Animation")]
+    [Tooltip("Animator using AnimationState: 0 Idle, 1 Run, 2 Jump, 3 Fall.")]
+    [SerializeField] private Animator playerAnimator;
 
     [Header("Ground Check")]
     public Transform groundCheck;
@@ -45,6 +57,11 @@ public class Movement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         playerInput = GetComponent<PlayerInput>();
+
+        if (playerAnimator == null)
+        {
+            playerAnimator = GetComponentInChildren<Animator>();
+        }
 
         moveAction = playerInput.actions["Move"];
         jumpAction = playerInput.actions["Jump"];
@@ -106,6 +123,32 @@ public class Movement : MonoBehaviour
 
             jumpQueued = false;
         }
+
+        UpdateAnimationState(moveX);
+    }
+
+    private void UpdateAnimationState(float moveX)
+    {
+        if (playerAnimator == null)
+        {
+            return;
+        }
+
+        PlayerAnimationState state;
+        if (!isGrounded)
+        {
+            state = rb.linearVelocity.y >= 0f
+                ? PlayerAnimationState.Jump
+                : PlayerAnimationState.Fall;
+        }
+        else
+        {
+            state = Mathf.Abs(moveX) > 0.01f
+                ? PlayerAnimationState.Run
+                : PlayerAnimationState.Idle;
+        }
+
+        playerAnimator.SetInteger("AnimationState", (int)state);
     }
 
     IEnumerator Dash()

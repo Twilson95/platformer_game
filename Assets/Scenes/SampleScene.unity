@@ -4511,6 +4511,7 @@ GameObject:
   - component: {fileID: 1330045631}
   - component: {fileID: 1330045630}
   - component: {fileID: 1330045632}
+  - component: {fileID: 1330045633}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -4688,6 +4689,7 @@ MonoBehaviour:
   attackCooldown: 0.1
   sword: {fileID: 1139554380}
   swingDuration: 0.2
+  playerAnimator: {fileID: 0}
   groundCheck: {fileID: 1046255734}
   groundRadius: 0.2
   groundLayer:
@@ -4831,6 +4833,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c288d1e32f08a2946951333b173f98ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+--- !u!95 &1330045633
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1330045624}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 54414ad937a61f7478d372bb25653714, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &1341475938
 GameObject:
   m_ObjectHideFlags: 0
