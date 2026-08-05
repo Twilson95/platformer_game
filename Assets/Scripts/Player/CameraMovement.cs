@@ -1,4 +1,6 @@
+using PlatformerGame.Player;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CameraMovement : MonoBehaviour
 {
@@ -15,15 +17,57 @@ public class CameraMovement : MonoBehaviour
     [Header("Normal Follow")]
     public float smoothTime = 0.2f;
 
+    [Header("Look Up/Down")]
+    [Min(0f)] public float lookOffset = 2f;
+    [Min(0.01f)] public float lookSmoothTime = 0.12f;
+    [Min(0f)] public float lookHoldDelay = 0.25f;
+
     [Header("Fall Follow")]
     public float fallSpeedThreshold = -8f;
 
     private Vector3 velocity;
+    private float currentLookOffset;
+    private float lookOffsetVelocity;
+    private float lookHoldTime;
+    private InputAction moveAction;
+    private Movement playerMovement;
+
+    void Awake()
+    {
+        if (target != null)
+        {
+            PlayerInput playerInput = target.GetComponent<PlayerInput>();
+            moveAction = playerInput != null ? playerInput.actions["Move"] : null;
+            playerMovement = target.GetComponent<Movement>();
+        }
+    }
 
     void LateUpdate()
     {
         if (target == null || playerRb == null)
             return;
+
+        float lookInput = moveAction != null ? moveAction.ReadValue<Vector2>().y : 0f;
+        bool canLook = playerMovement != null && playerMovement.IsGrounded;
+        if (canLook && Mathf.Abs(lookInput) > 0.1f)
+        {
+            lookHoldTime += Time.deltaTime;
+        }
+        else
+        {
+            lookHoldTime = 0f;
+        }
+
+        float targetLookOffset = canLook &&
+            lookHoldTime >= lookHoldDelay &&
+            Mathf.Abs(lookInput) > 0.1f
+            ? Mathf.Sign(lookInput) * lookOffset
+            : 0f;
+        currentLookOffset = Mathf.SmoothDamp(
+            currentLookOffset,
+            targetLookOffset,
+            ref lookOffsetVelocity,
+            lookSmoothTime);
 
         // ------------------------
         // Falling Mode
@@ -34,7 +78,7 @@ public class CameraMovement : MonoBehaviour
             transform.position += Vector3.up * playerRb.linearVelocity.y * Time.deltaTime;
 
             // Never let the camera get below the player.
-            float targetY = target.position.y + offset.y;
+            float targetY = target.position.y + offset.y + currentLookOffset;
 
             if (transform.position.y < targetY)
             {
@@ -84,7 +128,7 @@ public class CameraMovement : MonoBehaviour
             desiredPosition.y = target.position.y - Mathf.Sign(dy) * verticalDeadZone;
         }
 
-        desiredPosition += new Vector3(offset.x, offset.y, 0);
+        desiredPosition += new Vector3(offset.x, offset.y + currentLookOffset, 0);
         desiredPosition.z = offset.z;
 
         transform.position = Vector3.SmoothDamp(
