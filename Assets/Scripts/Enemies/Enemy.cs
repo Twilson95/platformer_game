@@ -34,6 +34,13 @@ namespace PlatformerGame.Enemies
         [SerializeField, Min(0f)] private float attackDamage = 1f;
         [SerializeField, Min(0f)] private float attackCooldown = 2f;
         [SerializeField, Min(0f)] private float attackWindupDuration = 0.4f;
+        [Header("Hit Reaction")]
+        [Tooltip("Impulse applied away from the player when this enemy is hit.")]
+        [SerializeField, Min(0f)] private float hitRecoilForce = 2f;
+        [Tooltip("How long normal enemy movement is disabled after being hit.")]
+        [SerializeField, Min(0f)] private float hitRecoilRecovery = 0.2f;
+        [Tooltip("How quickly grounded recoil slows down, in world units per second.")]
+        [SerializeField, Min(0f)] private float groundedRecoilDeceleration = 8f;
         [Tooltip("Assign a child containing the enemy sprite for a visual-only shake.")]
         [SerializeField] private Transform attackVisual;
         [SerializeField, Min(0f)] private float windupVibrationDistance = 0.06f;
@@ -67,6 +74,9 @@ namespace PlatformerGame.Enemies
         private Vector3 attackVisualRestPosition;
         private EnemyAnimationState currentAnimationState;
         private Collider2D previouslyActiveCollider;
+        private Vector2 pendingRecoilVelocity;
+        private float recoilRecoveryRemaining;
+        private bool stateColliderSuppressed;
 
         protected Rigidbody2D Body { get; private set; }
         protected float MoveSpeed => moveSpeed;
@@ -76,6 +86,7 @@ namespace PlatformerGame.Enemies
         protected bool IsWindingUp => attackWindingUp;
         protected virtual bool AlwaysAggro => false;
         protected virtual bool IsGroundedForAnimation => false;
+        protected virtual float AttackCooldownMultiplier => 1f;
         protected Vector2 GroundCheckPosition
         {
             get
@@ -139,6 +150,18 @@ namespace PlatformerGame.Enemies
                        0f,
                        layers) != null;
         }
+
+        protected void SuppressStateCollider(bool suppress)
+        {
+            stateColliderSuppressed = suppress;
+            if (suppress)
+            {
+                SetColliderEnabled(idleCollider, false);
+                SetColliderEnabled(jumpCollider, false);
+                SetColliderEnabled(fallCollider, false);
+                previouslyActiveCollider = null;
+            }
+        }
         public bool HasAggro => aggroActive;
         public bool AttackWindingUp => attackWindingUp;
         public bool AttackActive => attackActive;
@@ -164,8 +187,28 @@ namespace PlatformerGame.Enemies
         protected virtual void FixedUpdate()
         {
             UpdateAnimationState();
-            UpdateStateCollider();
             UpdateAnimationParameters();
+            UpdateStateCollider();
+
+            if (recoilRecoveryRemaining > 0f)
+            {
+                Body.linearVelocity += pendingRecoilVelocity;
+                pendingRecoilVelocity = Vector2.zero;
+
+                // Terrain uses low/no friction so enemies do not snag on
+                // walls. Slow grounded recoil explicitly instead.
+                if (Body.IsTouchingLayers(terrainLayers))
+                {
+                    float slowedX = Mathf.MoveTowards(
+                        Body.linearVelocity.x,
+                        0f,
+                        groundedRecoilDeceleration * Time.fixedDeltaTime);
+                    Body.linearVelocity = new Vector2(slowedX, Body.linearVelocity.y);
+                }
+
+                recoilRecoveryRemaining -= Time.fixedDeltaTime;
+                return;
+            }
 
             if (IsAlive)
             {
@@ -181,6 +224,7 @@ namespace PlatformerGame.Enemies
 
                 Move();
             }
+
         }
 
         private void UpdateAnimationParameters()
@@ -191,6 +235,9 @@ namespace PlatformerGame.Enemies
             }
 
             enemyAnimator.SetInteger("AnimationState", (int)currentAnimationState);
+            // Evaluate the animator immediately so the visual state changes in
+            // the same physics tick as the matching state collider.
+            enemyAnimator.Update(0f);
         }
 
         private void UpdateAnimationState()
@@ -222,6 +269,11 @@ namespace PlatformerGame.Enemies
 
         private void UpdateStateCollider()
         {
+            if (stateColliderSuppressed)
+            {
+                return;
+            }
+
             Collider2D activeCollider = GetActiveStateCollider();
 
             if (activeCollider == previouslyActiveCollider)
@@ -279,16 +331,51 @@ namespace PlatformerGame.Enemies
 
         public virtual void TakeDamage(float amount)
         {
+            TakeDamage(amount, Vector2.zero);
+        }
+
+        public virtual void TakeDamage(float amount, Vector2 hitDirection)
+        {
             if (!IsAlive || amount <= 0f)
             {
                 return;
             }
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
+            ApplyHitRecoil(hitDirection);
 
             if (!IsAlive)
             {
                 Die();
+            }
+        }
+
+        private void ApplyHitRecoil(Vector2 hitDirection)
+        {
+            if (Body == null || hitRecoilForce <= 0f)
+            {
+                return;
+            }
+
+            if (hitDirection.sqrMagnitude < 0.001f)
+            {
+                hitDirection = playerTarget != null
+                    ? Body.position - (Vector2)playerTarget.position
+                    : Vector2.right * (transform.localScale.x >= 0f ? 1f : -1f);
+            }
+
+            Vector2 recoilVelocity = hitDirection.normalized * hitRecoilForce;
+            if (hitRecoilRecovery > 0f)
+            {
+                // A hit interrupts any attack windup so a jumping enemy
+                // cannot launch after being knocked airborne.
+                CancelAttack();
+                pendingRecoilVelocity += recoilVelocity;
+                recoilRecoveryRemaining = hitRecoilRecovery;
+            }
+            else
+            {
+                Body.linearVelocity += recoilVelocity;
             }
         }
 
@@ -341,7 +428,7 @@ namespace PlatformerGame.Enemies
             attackEndTime = attackActive && duration > 0f
                 ? Time.time + duration
                 : 0f;
-            nextAttackTime = Time.time + attackCooldown;
+            nextAttackTime = Time.time + attackCooldown * AttackCooldownMultiplier;
             playersHitThisAttack.Clear();
             Body.linearVelocity = Vector2.zero;
 
@@ -416,7 +503,7 @@ namespace PlatformerGame.Enemies
             }
         }
 
-        private void CancelAttack()
+        protected void CancelAttack()
         {
             attackWindingUp = false;
             attackActive = false;

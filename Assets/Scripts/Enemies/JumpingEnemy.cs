@@ -67,7 +67,10 @@ namespace PlatformerGame.Enemies
             }
 
             commandedMoveDirection = direction;
-            SetHorizontalVelocity(direction);
+            if (grounded)
+            {
+                SetHorizontalVelocity(direction);
+            }
 
             if (IsAttacking)
             {

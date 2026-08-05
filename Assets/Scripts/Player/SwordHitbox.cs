@@ -35,7 +35,8 @@ namespace PlatformerGame.Player
             }
 
             enemiesHitThisSwing.Add(enemy);
-            enemy.TakeDamage(damage);
+            Vector2 hitDirection = (Vector2)enemy.transform.position - (Vector2)transform.position;
+            enemy.TakeDamage(damage, hitDirection);
         }
     }
 }

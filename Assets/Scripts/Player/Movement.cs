@@ -50,6 +50,7 @@ public class Movement : MonoBehaviour
     private bool isGrounded;
 
     public bool IsDashing { get; private set; }
+    public bool IsGrounded => isGrounded;
     private bool canDash = true;
     private bool canAttack = true;
 
